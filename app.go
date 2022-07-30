@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"encoding/json"
+
 	"strconv"
 
 	"github.com/gocolly/colly/v2"
@@ -31,6 +33,12 @@ func vehicleStringToInt(input string) int {
 		fmt.Println(error)
 		return result
 	}
+}
+
+func vehicleToJSON(inputVehicle vehicle) {
+	result, error := json.Marshal(inputVehicle)
+	fmt.Println(error)
+	fmt.Println(result)
 }
 
 func getVehicleByNum(vehicleNum int) vehicle {
