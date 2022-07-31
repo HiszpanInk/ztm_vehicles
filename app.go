@@ -12,6 +12,38 @@ import (
 	"github.com/gocolly/colly/v2"
 )
 
+//this function gets data for the lists with producers, models etc.
+//it runs at the start of the program
+//var traction_types []string
+//var producers []string
+
+func getDataLists() ([]string, []string, []string, []string, []string, []string) {
+	traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)
+
+	url := "https://www.ztm.waw.pl/baza-danych-pojazdow/"
+	c := colly.NewCollector(
+		colly.AllowedDomains("www.ztm.waw.pl"),
+	)
+	c.OnHTML("#ztm_vehicles_filter_traction > option", func(e *colly.HTMLElement) {
+		traction_types_temp = append(traction_types_temp, e.Text)
+		fmt.Println(e.Text)
+	})
+	c.OnHTML("#ztm_vehicles_filter_make > option", func(e *colly.HTMLElement) {
+		producers_temp = append(producers_temp, e.Text)
+		fmt.Println(e.Text)
+	})
+	c.Visit(url)
+
+	traction_types_temp = append([]string{""}, traction_types_temp[1:]...)
+	producers_temp = append([]string{""}, producers_temp[1:]...)
+	models_temp = append([]string{""}, models_temp[1:]...)
+	production_years_temp = append([]string{""}, production_years_temp[1:]...)
+	operators_temp = append([]string{""}, operators_temp[1:]...)
+	garages_temp = append([]string{""}, garages_temp[1:]...)
+
+	return traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp
+}
+
 type vehicle struct {
 	producer                   string
 	model                      string
@@ -26,9 +58,6 @@ type vehicle struct {
 }
 
 const vehicleStructFieldCount = 10
-
-//here there will be lists of correct sets of values for searchQuery
-var traction_types = [4]string{"Autobus", "Kolej", "Metro", "Tramwaj"}
 
 type searchQuery struct {
 	traction_type int
@@ -138,11 +167,14 @@ func getVehicleByNum(vehicleNum int) vehicle {
 	return retrievedVehicle
 }
 func main() {
-	//fmt.Println("Hello")
+	//traction_types, producers, models, production_years, operators, garages := getDataLists()
+
+	/*fmt.Println("Hello")
 	//vehicle := getVehicleByNum(3180)
 	//fmt.Println(vehicle)
 	examplesearchquery := searchQuery{
 		traction_type: 1,
 	}
-	search(examplesearchquery)
+	search(examplesearchquery)*/
+	
 }
