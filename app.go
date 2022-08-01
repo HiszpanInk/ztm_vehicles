@@ -12,6 +12,12 @@ import (
 	"github.com/gocolly/colly/v2"
 )
 
+//this will be used in JSONs
+type listElement struct {
+	id   int
+	name string
+}
+
 //this function gets data for the lists with producers, models etc.
 //it runs at the start of the program
 //var traction_types []string
@@ -59,16 +65,44 @@ type vehicle struct {
 
 const vehicleStructFieldCount = 10
 
+//the reason searchQuery have diffrent value types than vehicle is that in the URL some values are supposed to be ID's (garages for example)
+//those ID's will be based on the list of those elements that are made at the beginning of the program by getDataLists function
 type searchQuery struct {
-	traction_type int
-	//producer                   string
-	//model                      string
-	//production_year            int
-	//vehicle_registration_plate string
-	//vehicle_number             string
-	//operator                   string
-	//garage                     string
+	traction_type              int
+	producer                   string
+	model                      int
+	production_year            int
+	vehicle_registration_plate string
+	vehicle_number             string
+	operator                   int
+	garage                     int
 	//in future there will be also other criteria added (these which refers to the equipment)
+}
+
+//it returns a slice of vehicle numbers found and/or message if needed (with an error for example or sth idk)
+func search(searchQuery searchQuery) []string {
+	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=%d&ztm_make=%s&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", searchQuery.traction_type, searchQuery.producer, searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
+	pagesNum := getPagesNum(searchURL)
+	resultVehicles := make([]string, 0)
+
+	for i := 0; i < pagesNum; i++ {
+		searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/page/%d/?ztm_traction=%d&ztm_make=%s&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", i, searchQuery.traction_type, searchQuery.producer, searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
+		fmt.Println(searchURL)
+		c := colly.NewCollector(
+			// Visit only domains:
+			colly.AllowedDomains("www.ztm.waw.pl"),
+		)
+		p := 0
+		c.OnHTML("div[role=cell]", func(e *colly.HTMLElement) {
+			if p%5 == 0 {
+				vehicleNum := e.Text
+				resultVehicles = append(resultVehicles, vehicleNum)
+			}
+			p++
+		})
+		c.Visit(searchURL)
+	}
+	return resultVehicles
 }
 
 func getPagesNum(url string) int {
@@ -106,33 +140,6 @@ func vehicleToJSON(inputVehicle vehicle) {
 	fmt.Println(result)
 }
 
-//it will return array of vehicle numbers found and/or message if needed (with an error for example or sth idk)
-func search(searchQuery searchQuery) {
-	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=%d&ztm_make=&ztm_model=&ztm_year=&ztm_registration=&ztm_vehicle_number=&ztm_carrier=&ztm_depot=", searchQuery.traction_type)
-	pagesNum := getPagesNum(searchURL)
-	resultVehicles := make([]string, 0)
-	fmt.Println(pagesNum)
-	for i := 0; i < pagesNum; i++ {
-		searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/page/%d/?ztm_traction=%d&ztm_make=&ztm_model=&ztm_year=&ztm_registration=&ztm_vehicle_number=&ztm_carrier=&ztm_depot=", i, searchQuery.traction_type)
-		fmt.Println(searchURL)
-		c := colly.NewCollector(
-			// Visit only domains:
-			colly.AllowedDomains("www.ztm.waw.pl"),
-		)
-		p := 0
-		c.OnHTML("div[role=cell]", func(e *colly.HTMLElement) {
-			if p%5 == 0 {
-				vehicleNum := e.Text
-				resultVehicles = append(resultVehicles, vehicleNum)
-			}
-			p++
-		})
-		c.Visit(searchURL)
-	}
-	for i := 0; i < len(resultVehicles); i++ {
-		fmt.Println(resultVehicles[i])
-	}
-}
 func getVehicleByNum(vehicleNum int) vehicle {
 	var retrievedData [10]string
 
@@ -167,14 +174,15 @@ func getVehicleByNum(vehicleNum int) vehicle {
 	return retrievedVehicle
 }
 func main() {
+	//this line gets
 	//traction_types, producers, models, production_years, operators, garages := getDataLists()
 
-	/*fmt.Println("Hello")
+	//fmt.Println("Hello")
 	//vehicle := getVehicleByNum(3180)
 	//fmt.Println(vehicle)
-	examplesearchquery := searchQuery{
-		traction_type: 1,
+	/*examplesearchquery := searchQuery{
+		producer: "Alstom",
 	}
 	search(examplesearchquery)*/
-	
+
 }
