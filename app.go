@@ -12,6 +12,14 @@ import (
 	"github.com/gocolly/colly/v2"
 )
 
+func reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
 //this will be used in JSONs
 type listElement struct {
 	id   int
@@ -51,6 +59,7 @@ func getDataLists() ([]string, []string, []string, []string, []string, []string)
 }
 
 type vehicle struct {
+	db_id                      string
 	producer                   string
 	model                      string
 	production_year            int
@@ -140,46 +149,66 @@ func vehicleToJSON(inputVehicle vehicle) {
 	fmt.Println(result)
 }
 
-func getVehicleByNum(vehicleNum int) vehicle {
-	var retrievedData [10]string
-
-	//get data from website and insert it into array
-	vehicleURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_mode=2&ztm_vehicle=%d", vehicleNum)
-	// Instantiate default collector
-	c := colly.NewCollector(
+func getVehicleByNum(vehicleNum string) vehicle {
+	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=&ztm_make=&ztm_model=&ztm_year=&ztm_registration=&ztm_vehicle_number=%s&ztm_carrier=&ztm_depot=", vehicleNum)
+	vehicleURL := ""
+	vehicleID := ""
+	c2 := colly.NewCollector(
 		// Visit only domains:
 		colly.AllowedDomains("www.ztm.waw.pl"),
 	)
-	dataIndex := 0
-	c.OnHTML(".vehicle-details-entry-value", func(e *colly.HTMLElement) {
-		text := e.Text
-		retrievedData[dataIndex] = text
-		dataIndex++
-	})
-	c.Visit(vehicleURL)
+	c2.OnHTML(".grid-row-active", func(e *colly.HTMLElement) {
+		text := e.Attr("href")
+		vehicleURL = text
 
-	retrievedVehicle := vehicle{
-		producer:                   retrievedData[0],
-		model:                      retrievedData[1],
-		production_year:            vehicleStringToInt(retrievedData[2]),
-		traction_type:              retrievedData[3],
-		vehicle_registration_plate: retrievedData[4],
-		vehicle_number:             retrievedData[5],
-		operator:                   retrievedData[6],
-		garage:                     retrievedData[7],
-		ticket_machine:             retrievedData[8],
-		equipment:                  retrievedData[9],
+		vehicleID = reverse(vehicleURL)
+		vehicleID = reverse(vehicleID[0:(strings.Index(vehicleID, "="))])
+	})
+	c2.Visit(searchURL)
+	if vehicleURL == "" {
+		var emptyVehicle vehicle
+		return emptyVehicle
+	} else {
+		var retrievedData [10]string
+
+		// Instantiate default collector
+		c := colly.NewCollector(
+			// Visit only domains:
+			colly.AllowedDomains("www.ztm.waw.pl"),
+		)
+		dataIndex := 0
+		c.OnHTML(".vehicle-details-entry-value", func(e *colly.HTMLElement) {
+			text := e.Text
+			retrievedData[dataIndex] = text
+			dataIndex++
+		})
+		c.Visit(vehicleURL)
+
+		retrievedVehicle := vehicle{
+			db_id:                      vehicleID,
+			producer:                   retrievedData[0],
+			model:                      retrievedData[1],
+			production_year:            vehicleStringToInt(retrievedData[2]),
+			traction_type:              retrievedData[3],
+			vehicle_registration_plate: retrievedData[4],
+			vehicle_number:             retrievedData[5],
+			operator:                   retrievedData[6],
+			garage:                     retrievedData[7],
+			ticket_machine:             retrievedData[8],
+			equipment:                  retrievedData[9],
+		}
+		return retrievedVehicle
 	}
 
-	return retrievedVehicle
 }
 func main() {
 	//this line gets
 	//traction_types, producers, models, production_years, operators, garages := getDataLists()
 
 	//fmt.Println("Hello")
-	//vehicle := getVehicleByNum(3180)
-	//fmt.Println(vehicle)
+	vehicle := getVehicleByNum("2137")
+
+	fmt.Println(vehicle.db_id)
 	/*examplesearchquery := searchQuery{
 		producer: "Alstom",
 	}
