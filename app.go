@@ -20,18 +20,22 @@ func reverse(s string) string {
 	return string(runes)
 }
 
-//this will be used in JSONs
-type listElement struct {
-	id   int
-	name string
+func getElementIndexInSlice(element string, slice []string) int {
+	toReturn := -1
+	for i := 0; i < len(slice); i++ {
+		if element == slice[i] {
+			toReturn = i
+		}
+	}
+	return toReturn
 }
 
-//this function gets data for the lists with producers, models etc.
-//it runs at the start of the program
-//var traction_types []string
-//var producers []string
+// this function gets data for the lists with producers, models etc.
+// it runs at the start of the program
+// var traction_types []string
+var producers []string
 
-func getDataLists() ([]string, []string, []string, []string, []string, []string) {
+func getDataLists() []string /*, []string, []string, []string, []string, []string*/ {
 	traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)
 
 	url := "https://www.ztm.waw.pl/baza-danych-pojazdow/"
@@ -40,11 +44,21 @@ func getDataLists() ([]string, []string, []string, []string, []string, []string)
 	)
 	c.OnHTML("#ztm_vehicles_filter_traction > option", func(e *colly.HTMLElement) {
 		traction_types_temp = append(traction_types_temp, e.Text)
-		fmt.Println(e.Text)
 	})
 	c.OnHTML("#ztm_vehicles_filter_make > option", func(e *colly.HTMLElement) {
 		producers_temp = append(producers_temp, e.Text)
-		fmt.Println(e.Text)
+	})
+	c.OnHTML("#ztm_vehicles_filter_model > option", func(e *colly.HTMLElement) {
+		models_temp = append(models_temp, e.Text)
+	})
+	c.OnHTML("#ztm_vehicles_filter_year > option", func(e *colly.HTMLElement) {
+		production_years_temp = append(production_years_temp, e.Text)
+	})
+	c.OnHTML("#ztm_vehicles_filter_carrier > option", func(e *colly.HTMLElement) {
+		operators_temp = append(operators_temp, e.Text)
+	})
+	c.OnHTML("#ztm_vehicles_filter_depot > option", func(e *colly.HTMLElement) {
+		garages_temp = append(garages_temp, e.Text)
 	})
 	c.Visit(url)
 
@@ -55,12 +69,19 @@ func getDataLists() ([]string, []string, []string, []string, []string, []string)
 	operators_temp = append([]string{""}, operators_temp[1:]...)
 	garages_temp = append([]string{""}, garages_temp[1:]...)
 
-	return traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp
+	//return traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp
+	return producers_temp
+}
+
+// this is used for producers, garages, operators and models
+type propertyWithID struct {
+	id   int
+	name string
 }
 
 type vehicle struct {
 	db_id                      string
-	producer                   string
+	producer                   propertyWithID
 	model                      string
 	production_year            int
 	traction_type              string
@@ -74,11 +95,11 @@ type vehicle struct {
 
 const vehicleStructFieldCount = 10
 
-//the reason searchQuery have diffrent value types than vehicle is that in the URL some values are supposed to be ID's (garages for example)
-//those ID's will be based on the list of those elements that are made at the beginning of the program by getDataLists function
+// the reason searchQuery have diffrent value types than vehicle is that in the URL some values are supposed to be ID's (garages for example)
+// those ID's will be based on the list of those elements that are made at the beginning of the program by getDataLists function
 type searchQuery struct {
 	traction_type              int
-	producer                   string
+	producer                   int
 	model                      int
 	production_year            int
 	vehicle_registration_plate string
@@ -88,14 +109,19 @@ type searchQuery struct {
 	//in future there will be also other criteria added (these which refers to the equipment)
 }
 
-//it returns a slice of vehicle numbers found and/or message if needed (with an error for example or sth idk)
+type searchResult struct {
+	message string
+	data    []vehicle
+}
+
+// it returns a slice of vehicle numbers found and/or message if needed (with an error for example or sth idk)
 func search(searchQuery searchQuery) []string {
-	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=%d&ztm_make=%s&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", searchQuery.traction_type, searchQuery.producer, searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
+	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=%d&ztm_make=%d&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", searchQuery.traction_type, searchQuery.producer, searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
 	pagesNum := getPagesNum(searchURL)
 	resultVehicles := make([]string, 0)
 
 	for i := 0; i < pagesNum; i++ {
-		searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/page/%d/?ztm_traction=%d&ztm_make=%s&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", i, searchQuery.traction_type, searchQuery.producer, searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
+		searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/page/%d/?ztm_traction=%d&ztm_make=%d&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", i, searchQuery.traction_type, searchQuery.producer, searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
 		fmt.Println(searchURL)
 		c := colly.NewCollector(
 			// Visit only domains:
@@ -186,7 +212,7 @@ func getVehicleByNum(vehicleNum string) vehicle {
 
 		retrievedVehicle := vehicle{
 			db_id:                      vehicleID,
-			producer:                   retrievedData[0],
+			producer:                   propertyWithID{getElementIndexInSlice(retrievedData[0], producers), retrievedData[0]},
 			model:                      retrievedData[1],
 			production_year:            vehicleStringToInt(retrievedData[2]),
 			traction_type:              retrievedData[3],
@@ -203,12 +229,19 @@ func getVehicleByNum(vehicleNum string) vehicle {
 }
 func main() {
 	//this line gets
-	//traction_types, producers, models, production_years, operators, garages := getDataLists()
+	/*traction_types, */
+	producers /*, models, production_years, operators, garages*/ = getDataLists()
 
 	//fmt.Println("Hello")
-	vehicle := getVehicleByNum("2137")
+	vehicle := getVehicleByNum("8166")
 
-	fmt.Println(vehicle.db_id)
+	fmt.Println(fmt.Sprintf(`
+	%s
+	%s
+	%d
+	%s
+	%s
+	`, vehicle.producer.name, vehicle.model, vehicle.production_year, vehicle.traction_type, vehicle.vehicle_registration_plate))
 	/*examplesearchquery := searchQuery{
 		producer: "Alstom",
 	}
