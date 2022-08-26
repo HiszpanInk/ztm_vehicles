@@ -30,12 +30,17 @@ func getElementIndexInSlice(element string, slice []string) int {
 	return toReturn
 }
 
-// this function gets data for the lists with producers, models etc.
+// this function gets data for the lists with Producers, models etc.
 // it runs at the start of the program
 // var traction_types []string
-var producers []string
+var Producers []string
+var models []string
+var traction_types []string
+var operators []string
+var production_years []string
+var garages []string
 
-func getDataLists() []string /*, []string, []string, []string, []string, []string*/ {
+func getDataLists() ([]string, []string, []string, []string, []string, []string) {
 	traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)
 
 	url := "https://www.ztm.waw.pl/baza-danych-pojazdow/"
@@ -69,28 +74,27 @@ func getDataLists() []string /*, []string, []string, []string, []string, []strin
 	operators_temp = append([]string{""}, operators_temp[1:]...)
 	garages_temp = append([]string{""}, garages_temp[1:]...)
 
-	//return traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp
-	return producers_temp
+	return traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp
 }
 
-// this is used for producers, garages, operators and models
+// this is used for Producers, garages, operators and models
 type propertyWithID struct {
-	id   int
-	name string
+	Id   int
+	Name string
 }
 
 type vehicle struct {
-	db_id                      string
-	producer                   propertyWithID
-	model                      string
-	production_year            int
-	traction_type              string
-	vehicle_registration_plate string
-	vehicle_number             string
-	operator                   string
-	garage                     string
-	ticket_machine             string
-	equipment                  string
+	Db_id                      string
+	Producer                   propertyWithID
+	Model                      propertyWithID
+	Production_year            int
+	Traction_type              propertyWithID
+	Vehicle_registration_plate string
+	Vehicle_number             string
+	Operator                   propertyWithID
+	Garage                     propertyWithID
+	Ticket_machine             string
+	Equipment                  string
 }
 
 const vehicleStructFieldCount = 10
@@ -170,9 +174,10 @@ func vehicleStringToInt(input string) int {
 }
 
 func vehicleToJSON(inputVehicle vehicle) {
-	result, error := json.Marshal(inputVehicle)
+	fmt.Println(inputVehicle)
+	result, error := json.MarshalIndent(&inputVehicle, "", "  ")
 	fmt.Println(error)
-	fmt.Println(result)
+	fmt.Println(string(result))
 }
 
 func getVehicleByNum(vehicleNum string) vehicle {
@@ -197,6 +202,8 @@ func getVehicleByNum(vehicleNum string) vehicle {
 	} else {
 		var retrievedData [10]string
 
+		fmt.Println(vehicleURL)
+
 		// Instantiate default collector
 		c := colly.NewCollector(
 			// Visit only domains:
@@ -211,39 +218,33 @@ func getVehicleByNum(vehicleNum string) vehicle {
 		c.Visit(vehicleURL)
 
 		retrievedVehicle := vehicle{
-			db_id:                      vehicleID,
-			producer:                   propertyWithID{getElementIndexInSlice(retrievedData[0], producers), retrievedData[0]},
-			model:                      retrievedData[1],
-			production_year:            vehicleStringToInt(retrievedData[2]),
-			traction_type:              retrievedData[3],
-			vehicle_registration_plate: retrievedData[4],
-			vehicle_number:             retrievedData[5],
-			operator:                   retrievedData[6],
-			garage:                     retrievedData[7],
-			ticket_machine:             retrievedData[8],
-			equipment:                  retrievedData[9],
+			Db_id:                      vehicleID,
+			Producer:                   propertyWithID{getElementIndexInSlice(retrievedData[0], Producers), retrievedData[0]},
+			Model:                      propertyWithID{getElementIndexInSlice(retrievedData[1], models), retrievedData[1]},
+			Production_year:            vehicleStringToInt(retrievedData[2]),
+			Traction_type:              propertyWithID{getElementIndexInSlice(retrievedData[3], traction_types), retrievedData[3]},
+			Vehicle_registration_plate: retrievedData[4],
+			Vehicle_number:             retrievedData[5],
+			Operator:                   propertyWithID{getElementIndexInSlice(retrievedData[6], operators), retrievedData[6]},
+			Garage:                     propertyWithID{getElementIndexInSlice(retrievedData[7], garages), retrievedData[7]},
+			Ticket_machine:             retrievedData[8],
+			Equipment:                  retrievedData[9],
 		}
 		return retrievedVehicle
 	}
 
 }
 func main() {
-	//this line gets
-	/*traction_types, */
-	producers /*, models, production_years, operators, garages*/ = getDataLists()
+	//for now main() part is used only for testing
+
+	traction_types, Producers, models, production_years, operators, garages = getDataLists()
 
 	//fmt.Println("Hello")
 	vehicle := getVehicleByNum("8166")
 
-	fmt.Println(fmt.Sprintf(`
-	%s
-	%s
-	%d
-	%s
-	%s
-	`, vehicle.producer.name, vehicle.model, vehicle.production_year, vehicle.traction_type, vehicle.vehicle_registration_plate))
+	vehicleToJSON(vehicle)
 	/*examplesearchquery := searchQuery{
-		producer: "Alstom",
+		Producer: "Alstom",
 	}
 	search(examplesearchquery)*/
 
