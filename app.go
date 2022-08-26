@@ -114,8 +114,9 @@ type searchQuery struct {
 }
 
 type searchResult struct {
-	message string
-	data    []vehicle
+	Message       string
+	Results_count int
+	Data          []vehicle
 }
 
 // it returns a slice of vehicle numbers found and/or message if needed (with an error for example or sth idk)
@@ -173,64 +174,86 @@ func vehicleStringToInt(input string) int {
 	}
 }
 
-func vehicleToJSON(inputVehicle vehicle) {
-	fmt.Println(inputVehicle)
-	result, error := json.MarshalIndent(&inputVehicle, "", "  ")
+func vehicleToJSON(input searchResult) []byte {
+	result, error := json.MarshalIndent(&input, "", "  ")
 	fmt.Println(error)
-	fmt.Println(string(result))
+	return result
 }
 
-func getVehicleByNum(vehicleNum string) vehicle {
+func getVehicleByNum(vehicleNum string) searchResult {
 	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=&ztm_make=&ztm_model=&ztm_year=&ztm_registration=&ztm_vehicle_number=%s&ztm_carrier=&ztm_depot=", vehicleNum)
-	vehicleURL := ""
-	vehicleID := ""
+
+	var vehicleURL []string
+	var vehicleID []string
+
+	var vehicleURLTemp string
+	var vehicleIDTemp string
+
 	c2 := colly.NewCollector(
 		// Visit only domains:
 		colly.AllowedDomains("www.ztm.waw.pl"),
 	)
 	c2.OnHTML(".grid-row-active", func(e *colly.HTMLElement) {
 		text := e.Attr("href")
-		vehicleURL = text
+		vehicleURLTemp = text
 
-		vehicleID = reverse(vehicleURL)
-		vehicleID = reverse(vehicleID[0:(strings.Index(vehicleID, "="))])
+		vehicleURL = append(vehicleURL, vehicleURLTemp)
+
+		vehicleIDTemp = reverse(vehicleURLTemp)
+		vehicleIDTemp = reverse(vehicleIDTemp[0:(strings.Index(vehicleIDTemp, "="))])
+
+		vehicleID = append(vehicleID, vehicleIDTemp)
 	})
 	c2.Visit(searchURL)
-	if vehicleURL == "" {
-		var emptyVehicle vehicle
-		return emptyVehicle
-	} else {
-		var retrievedData [10]string
-
-		fmt.Println(vehicleURL)
-
-		// Instantiate default collector
-		c := colly.NewCollector(
-			// Visit only domains:
-			colly.AllowedDomains("www.ztm.waw.pl"),
-		)
-		dataIndex := 0
-		c.OnHTML(".vehicle-details-entry-value", func(e *colly.HTMLElement) {
-			text := e.Text
-			retrievedData[dataIndex] = text
-			dataIndex++
-		})
-		c.Visit(vehicleURL)
-
-		retrievedVehicle := vehicle{
-			Db_id:                      vehicleID,
-			Producer:                   propertyWithID{getElementIndexInSlice(retrievedData[0], Producers), retrievedData[0]},
-			Model:                      propertyWithID{getElementIndexInSlice(retrievedData[1], models), retrievedData[1]},
-			Production_year:            vehicleStringToInt(retrievedData[2]),
-			Traction_type:              propertyWithID{getElementIndexInSlice(retrievedData[3], traction_types), retrievedData[3]},
-			Vehicle_registration_plate: retrievedData[4],
-			Vehicle_number:             retrievedData[5],
-			Operator:                   propertyWithID{getElementIndexInSlice(retrievedData[6], operators), retrievedData[6]},
-			Garage:                     propertyWithID{getElementIndexInSlice(retrievedData[7], garages), retrievedData[7]},
-			Ticket_machine:             retrievedData[8],
-			Equipment:                  retrievedData[9],
+	if len(vehicleURL) == 0 {
+		var emptyVehicles []vehicle
+		result := searchResult{
+			Message:       "no vehicle found",
+			Results_count: 0,
+			Data:          emptyVehicles,
 		}
-		return retrievedVehicle
+
+		return result
+	} else {
+		var retrievedVehicles []vehicle
+		for i := 0; i < len(vehicleURL); i++ {
+			var retrievedData [10]string
+
+			// Instantiate default collector
+			c := colly.NewCollector(
+				// Visit only domains:
+				colly.AllowedDomains("www.ztm.waw.pl"),
+			)
+			dataIndex := 0
+			c.OnHTML(".vehicle-details-entry-value", func(e *colly.HTMLElement) {
+				text := e.Text
+				retrievedData[dataIndex] = text
+				dataIndex++
+			})
+			c.Visit(vehicleURL[i])
+
+			tempVehicle := vehicle{
+				Db_id:                      vehicleID[i],
+				Producer:                   propertyWithID{getElementIndexInSlice(retrievedData[0], Producers), retrievedData[0]},
+				Model:                      propertyWithID{getElementIndexInSlice(retrievedData[1], models), retrievedData[1]},
+				Production_year:            vehicleStringToInt(retrievedData[2]),
+				Traction_type:              propertyWithID{getElementIndexInSlice(retrievedData[3], traction_types), retrievedData[3]},
+				Vehicle_registration_plate: retrievedData[4],
+				Vehicle_number:             retrievedData[5],
+				Operator:                   propertyWithID{getElementIndexInSlice(retrievedData[6], operators), retrievedData[6]},
+				Garage:                     propertyWithID{getElementIndexInSlice(retrievedData[7], garages), retrievedData[7]},
+				Ticket_machine:             retrievedData[8],
+				Equipment:                  retrievedData[9],
+			}
+			retrievedVehicles = append(retrievedVehicles, tempVehicle)
+		}
+		result := searchResult{
+			Message:       "ok",
+			Results_count: len(retrievedVehicles),
+			Data:          retrievedVehicles,
+		}
+
+		return result
 	}
 
 }
@@ -241,8 +264,10 @@ func main() {
 
 	//fmt.Println("Hello")
 	vehicle := getVehicleByNum("8166")
+	fmt.Println(string(vehicleToJSON(vehicle)))
+	vehicle = getVehicleByNum("3894838")
+	fmt.Println(string(vehicleToJSON(vehicle)))
 
-	vehicleToJSON(vehicle)
 	/*examplesearchquery := searchQuery{
 		Producer: "Alstom",
 	}
