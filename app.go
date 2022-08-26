@@ -180,6 +180,57 @@ func vehicleToJSON(input searchResult) []byte {
 	return result
 }
 
+func getVehicleById(vehicleID string) searchResult {
+	var retrievedData [10]string
+	vehicleURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_mode=2&ztm_vehicle=%s", vehicleID)
+	// Instantiate default collector
+	c := colly.NewCollector(
+		// Visit only domains:
+		colly.AllowedDomains("www.ztm.waw.pl"),
+	)
+	dataIndex := 0
+	c.OnHTML(".vehicle-details-entry-value", func(e *colly.HTMLElement) {
+		text := e.Text
+		retrievedData[dataIndex] = text
+		dataIndex++
+	})
+	c.Visit(vehicleURL)
+
+	if dataIndex == 0 {
+		var emptyVehicles []vehicle
+		result := searchResult{
+			Message:       "no vehicle found",
+			Results_count: 0,
+			Data:          emptyVehicles,
+		}
+		return result
+	} else {
+		var resultVehicle []vehicle
+		tempVehicle := vehicle{
+			Db_id:                      vehicleID,
+			Producer:                   propertyWithID{getElementIndexInSlice(retrievedData[0], Producers), retrievedData[0]},
+			Model:                      propertyWithID{getElementIndexInSlice(retrievedData[1], models), retrievedData[1]},
+			Production_year:            vehicleStringToInt(retrievedData[2]),
+			Traction_type:              propertyWithID{getElementIndexInSlice(retrievedData[3], traction_types), retrievedData[3]},
+			Vehicle_registration_plate: retrievedData[4],
+			Vehicle_number:             retrievedData[5],
+			Operator:                   propertyWithID{getElementIndexInSlice(retrievedData[6], operators), retrievedData[6]},
+			Garage:                     propertyWithID{getElementIndexInSlice(retrievedData[7], garages), retrievedData[7]},
+			Ticket_machine:             retrievedData[8],
+			Equipment:                  retrievedData[9],
+		}
+		resultVehicle = append(resultVehicle, tempVehicle)
+		result := searchResult{
+			Message:       "ok",
+			Results_count: 1,
+			Data:          resultVehicle,
+		}
+
+		return result
+	}
+
+}
+
 func getVehicleByNum(vehicleNum string) searchResult {
 	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=&ztm_make=&ztm_model=&ztm_year=&ztm_registration=&ztm_vehicle_number=%s&ztm_carrier=&ztm_depot=", vehicleNum)
 
@@ -212,7 +263,6 @@ func getVehicleByNum(vehicleNum string) searchResult {
 			Results_count: 0,
 			Data:          emptyVehicles,
 		}
-
 		return result
 	} else {
 		var retrievedVehicles []vehicle
@@ -263,9 +313,9 @@ func main() {
 	traction_types, Producers, models, production_years, operators, garages = getDataLists()
 
 	//fmt.Println("Hello")
-	vehicle := getVehicleByNum("8166")
+	vehicle := getVehicleByNum("22434137")
 	fmt.Println(string(vehicleToJSON(vehicle)))
-	vehicle = getVehicleByNum("3894838")
+	vehicle = getVehicleById("3894838")
 	fmt.Println(string(vehicleToJSON(vehicle)))
 
 	/*examplesearchquery := searchQuery{
