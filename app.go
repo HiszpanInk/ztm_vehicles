@@ -97,7 +97,7 @@ type vehicle struct {
 	Equipment                  string
 }
 
-const vehicleStructFieldCount = 10
+//const vehicleStructFieldCount = 10
 
 // the reason searchQuery have diffrent value types than vehicle is that in the URL some values are supposed to be ID's (garages for example)
 // those ID's will be based on the list of those elements that are made at the beginning of the program by getDataLists function
@@ -132,7 +132,7 @@ func search(searchQuery searchQuery, onlyID bool) searchResult {
 	var vehicleURLTemp string
 	var vehicleIDTemp string
 
-	for i := 0; i < pagesNum; i++ {
+	for i := 1; i < pagesNum; i++ {
 		searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/page/%d/?ztm_traction=%d&ztm_make=%d&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", i, searchQuery.traction_type, searchQuery.producer, searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
 		fmt.Println(searchURL)
 		c := colly.NewCollector(
@@ -175,7 +175,6 @@ func search(searchQuery searchQuery, onlyID bool) searchResult {
 }
 
 func getPagesNum(url string) int {
-	//need to program when there are two pages because this case (for example with operator id 2) it breaks program
 	result := 1
 	c := colly.NewCollector(
 		// Visit only domains:
@@ -184,10 +183,14 @@ func getPagesNum(url string) int {
 	p := 0
 	c.OnHTML(".page-numbers>a", func(e *colly.HTMLElement) {
 		if p == 1 {
-			fmt.Println(strings.Split(e.Text, " ")[0])
-			localResult, _ := strconv.Atoi(strings.Split(e.Text, " ")[0])
-			//fmt.Println(error)
-			result = localResult
+			thirdPageNumberLink := strings.Split(e.Text, " ")[0]
+			if thirdPageNumberLink != "Następna" {
+				localResult, _ := strconv.Atoi(strings.Split(e.Text, " ")[0])
+				//fmt.Println(error)
+				result = localResult
+			} else {
+				result = 2
+			}
 		}
 		p++
 	})
@@ -325,17 +328,22 @@ func main() {
 	//for now main() part is used only for testing
 
 	traction_types, producers, models, production_years, operators, garages = getDataLists()
-
-	//fmt.Println("Hello")
-	vehicle := getVehicleByNum("2022")
-	fmt.Println(string(vehicleToJSON(vehicle)))
-	vehicle = getVehicleById("2137")
-	fmt.Println(string(vehicleToJSON(vehicle)))
-
-	/*examplesearchquery := searchQuery{
+	/*
+		//fmt.Println("Hello")
+		vehicle := getVehicleByNum("2022")
+		fmt.Println(string(vehicleToJSON(vehicle)))
+		vehicle = getVehicleById("2137")
+		fmt.Println(string(vehicleToJSON(vehicle)))
+	*/
+	examplesearchquery := searchQuery{
 		production_year: 2022,
 	}
-	fmt.Println(string(vehicleToJSON(search(examplesearchquery, true))))*/
+	search(examplesearchquery, true)
+
+	examplesearchquery2 := searchQuery{
+		operator: 2,
+	}
+	search(examplesearchquery2, true)
 	//search(examplesearchquery, true)
 
 }
