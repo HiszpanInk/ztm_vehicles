@@ -150,15 +150,6 @@ func search(searchQuery searchQuery, onlyID bool) searchResult {
 
 			vehicleID = append(vehicleID, vehicleIDTemp)
 		})
-		/*
-			p := 0
-			c.OnHTML("div[role=cell]", func(e *colly.HTMLElement) {
-				if p%5 == 0 {
-					vehicleNum := e.Text
-					resultVehicles = append(resultVehicles, vehicleNum)
-				}
-				p++
-			})*/
 		c.Visit(searchURL)
 	}
 	var resultVehicles []vehicle
@@ -259,22 +250,9 @@ func getVehicleData(vehicleID string) vehicle {
 }
 
 func getVehicleById(vehicleID string) searchResult {
-	var retrievedData [10]string
-	vehicleURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_mode=2&ztm_vehicle=%s", vehicleID)
-	// Instantiate default collector
-	c := colly.NewCollector(
-		// Visit only domains:
-		colly.AllowedDomains("www.ztm.waw.pl"),
-	)
-	dataIndex := 0
-	c.OnHTML(".vehicle-details-entry-value", func(e *colly.HTMLElement) {
-		text := e.Text
-		retrievedData[dataIndex] = text
-		dataIndex++
-	})
-	c.Visit(vehicleURL)
+	tempVehicle := getVehicleData(vehicleID)
 
-	if dataIndex == 0 {
+	if tempVehicle.Db_id == "0" {
 		var emptyVehicles []vehicle
 		result := searchResult{
 			Message:       "no vehicle found",
@@ -284,19 +262,6 @@ func getVehicleById(vehicleID string) searchResult {
 		return result
 	} else {
 		var resultVehicle []vehicle
-		tempVehicle := vehicle{
-			Db_id:                      vehicleID,
-			Producer:                   propertyWithID{getElementIndexInSlice(retrievedData[0], producers), retrievedData[0]},
-			Model:                      propertyWithID{getElementIndexInSlice(retrievedData[1], models), retrievedData[1]},
-			Production_year:            vehicleStringToInt(retrievedData[2]),
-			Traction_type:              propertyWithID{getElementIndexInSlice(retrievedData[3], traction_types), retrievedData[3]},
-			Vehicle_registration_plate: retrievedData[4],
-			Vehicle_number:             retrievedData[5],
-			Operator:                   propertyWithID{getElementIndexInSlice(retrievedData[6], operators), retrievedData[6]},
-			Garage:                     propertyWithID{getElementIndexInSlice(retrievedData[7], garages), retrievedData[7]},
-			Ticket_machine:             retrievedData[8],
-			Equipment:                  retrievedData[9],
-		}
 		resultVehicle = append(resultVehicle, tempVehicle)
 		result := searchResult{
 			Message:       "ok",
@@ -342,35 +307,8 @@ func getVehicleByNum(vehicleNum string) searchResult {
 		return result
 	} else {
 		var retrievedVehicles []vehicle
-		for i := 0; i < len(vehicleURL); i++ {
-			var retrievedData [10]string
-
-			// Instantiate default collector
-			c := colly.NewCollector(
-				// Visit only domains:
-				colly.AllowedDomains("www.ztm.waw.pl"),
-			)
-			dataIndex := 0
-			c.OnHTML(".vehicle-details-entry-value", func(e *colly.HTMLElement) {
-				text := e.Text
-				retrievedData[dataIndex] = text
-				dataIndex++
-			})
-			c.Visit(vehicleURL[i])
-
-			tempVehicle := vehicle{
-				Db_id:                      vehicleID[i],
-				Producer:                   propertyWithID{getElementIndexInSlice(retrievedData[0], producers), retrievedData[0]},
-				Model:                      propertyWithID{getElementIndexInSlice(retrievedData[1], models), retrievedData[1]},
-				Production_year:            vehicleStringToInt(retrievedData[2]),
-				Traction_type:              propertyWithID{getElementIndexInSlice(retrievedData[3], traction_types), retrievedData[3]},
-				Vehicle_registration_plate: retrievedData[4],
-				Vehicle_number:             retrievedData[5],
-				Operator:                   propertyWithID{getElementIndexInSlice(retrievedData[6], operators), retrievedData[6]},
-				Garage:                     propertyWithID{getElementIndexInSlice(retrievedData[7], garages), retrievedData[7]},
-				Ticket_machine:             retrievedData[8],
-				Equipment:                  retrievedData[9],
-			}
+		for _, element := range vehicleID {
+			tempVehicle := getVehicleData(element)
 			retrievedVehicles = append(retrievedVehicles, tempVehicle)
 		}
 		result := searchResult{
@@ -389,15 +327,15 @@ func main() {
 	traction_types, producers, models, production_years, operators, garages = getDataLists()
 
 	//fmt.Println("Hello")
-	/*vehicle := getVehicleByNum("8166")
+	vehicle := getVehicleByNum("2022")
 	fmt.Println(string(vehicleToJSON(vehicle)))
-	vehicle = getVehicleById("3894838")
+	vehicle = getVehicleById("2137")
 	fmt.Println(string(vehicleToJSON(vehicle)))
-	*/
-	examplesearchquery := searchQuery{
+
+	/*examplesearchquery := searchQuery{
 		production_year: 2022,
 	}
-	fmt.Println(string(vehicleToJSON(search(examplesearchquery, true))))
+	fmt.Println(string(vehicleToJSON(search(examplesearchquery, true))))*/
 	//search(examplesearchquery, true)
 
 }
