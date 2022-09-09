@@ -30,6 +30,12 @@ func getElementIndexInSlice(element string, slice []string) int {
 	return toReturn
 }
 
+// this is used for Producers, garages, operators and models
+type propertyWithID struct {
+	Id   int
+	Name string
+}
+
 // this function gets data for the lists with Producers, models etc.
 // it runs at the start of the program
 // var traction_types []string
@@ -77,10 +83,40 @@ func getDataLists() ([]string, []string, []string, []string, []string, []string)
 	return traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp
 }
 
-// this is used for Producers, garages, operators and models
-type propertyWithID struct {
-	Id   int
-	Name string
+func returnDataLists() DataListsQueryResult {
+	if len(producers) == 0 || len(models) == 0 || len(traction_types) == 0 || len(operators) == 0 || len(production_years) == 0 || len(garages) == 0 {
+		result := DataListsQueryResult{
+			SearchResult: SearchResult{
+				Message:       "lists are partly or fully unavailable, please contact administrator",
+				Results_count: 0,
+			},
+		}
+		return result
+	} else {
+		result := DataListsQueryResult{
+			SearchResult: SearchResult{
+				Message:       "ok",
+				Results_count: (len(producers) + len(models) + len(traction_types) + len(operators) + len(production_years) + len(garages)),
+			},
+			Data: make(map[string][]propertyWithID),
+		}
+
+		result.Data["producers"] = stringListToPropertyWithIDList(producers)
+		result.Data["models"] = stringListToPropertyWithIDList(models)
+		result.Data["traction_types"] = stringListToPropertyWithIDList(traction_types)
+		result.Data["operators"] = stringListToPropertyWithIDList(operators)
+		result.Data["production_years"] = stringListToPropertyWithIDList(production_years)
+		result.Data["garages"] = stringListToPropertyWithIDList(garages)
+		return result
+	}
+}
+
+func stringListToPropertyWithIDList(inputList []string) []propertyWithID {
+	var outputList []propertyWithID
+	for i := 0; i < len(inputList); i++ {
+		outputList = append(outputList, propertyWithID{(i + 1), inputList[i]})
+	}
+	return outputList
 }
 
 type vehicle struct {
@@ -112,15 +148,21 @@ type searchQuery struct {
 	garage                     int
 	//in future there will be also other criteria added (these which refers to the equipment)
 }
-
-type searchResult struct {
+type SearchResult struct {
 	Message       string
 	Results_count int
-	Data          []vehicle
+}
+type VehicleSearchQueryResult struct {
+	SearchResult
+	Data []vehicle
+}
+type DataListsQueryResult struct {
+	SearchResult
+	Data map[string][]propertyWithID
 }
 
 // it returns a slice of vehicle numbers found and/or message if needed (with an error for example or sth idk)
-func search(searchQuery searchQuery, onlyID bool) searchResult {
+func search(searchQuery searchQuery, onlyID bool) VehicleSearchQueryResult {
 
 	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=%d&ztm_make=%d&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", searchQuery.traction_type, searchQuery.producer, searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
 	pagesNum := getPagesNum(searchURL)
@@ -166,10 +208,12 @@ func search(searchQuery searchQuery, onlyID bool) searchResult {
 			resultVehicles = append(resultVehicles, tempVehicle)
 		}
 	}
-	result := searchResult{
-		Message:       "ok",
-		Results_count: len(vehicleID),
-		Data:          resultVehicles,
+	result := VehicleSearchQueryResult{
+		SearchResult: SearchResult{
+			Message:       "ok",
+			Results_count: len(vehicleID),
+		},
+		Data: resultVehicles,
 	}
 	return result
 }
@@ -209,7 +253,7 @@ func vehicleStringToInt(input string) int {
 	}
 }
 
-func vehicleToJSON(input searchResult) []byte {
+func vehicleToJSON(input VehicleSearchQueryResult) []byte {
 	result, _ := json.MarshalIndent(&input, "", "  ")
 	//fmt.Println(error)
 	return result
@@ -252,30 +296,34 @@ func getVehicleData(vehicleID string) vehicle {
 	}
 }
 
-func getVehicleById(vehicleID string) searchResult {
+func getVehicleById(vehicleID string) VehicleSearchQueryResult {
 	tempVehicle := getVehicleData(vehicleID)
 
 	if tempVehicle.Db_id == "0" {
 		var emptyVehicles []vehicle
-		result := searchResult{
-			Message:       "no vehicle found",
-			Results_count: 0,
-			Data:          emptyVehicles,
+		result := VehicleSearchQueryResult{
+			SearchResult: SearchResult{
+				Message:       "no vehicle found",
+				Results_count: 0,
+			},
+			Data: emptyVehicles,
 		}
 		return result
 	} else {
 		var resultVehicle []vehicle
 		resultVehicle = append(resultVehicle, tempVehicle)
-		result := searchResult{
-			Message:       "ok",
-			Results_count: 1,
-			Data:          resultVehicle,
+		result := VehicleSearchQueryResult{
+			SearchResult: SearchResult{
+				Message:       "ok",
+				Results_count: 1,
+			},
+			Data: resultVehicle,
 		}
 		return result
 	}
 }
 
-func getVehicleByNum(vehicleNum string) searchResult {
+func getVehicleByNum(vehicleNum string) VehicleSearchQueryResult {
 	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=&ztm_make=&ztm_model=&ztm_year=&ztm_registration=&ztm_vehicle_number=%s&ztm_carrier=&ztm_depot=", vehicleNum)
 
 	var vehicleURL []string
@@ -302,10 +350,12 @@ func getVehicleByNum(vehicleNum string) searchResult {
 	c2.Visit(searchURL)
 	if len(vehicleURL) == 0 {
 		var emptyVehicles []vehicle
-		result := searchResult{
-			Message:       "no vehicle found",
-			Results_count: 0,
-			Data:          emptyVehicles,
+		result := VehicleSearchQueryResult{
+			SearchResult: SearchResult{
+				Message:       "no vehicle found",
+				Results_count: 0,
+			},
+			Data: emptyVehicles,
 		}
 		return result
 	} else {
@@ -314,10 +364,12 @@ func getVehicleByNum(vehicleNum string) searchResult {
 			tempVehicle := getVehicleData(element)
 			retrievedVehicles = append(retrievedVehicles, tempVehicle)
 		}
-		result := searchResult{
-			Message:       "ok",
-			Results_count: len(retrievedVehicles),
-			Data:          retrievedVehicles,
+		result := VehicleSearchQueryResult{
+			SearchResult: SearchResult{
+				Message:       "ok",
+				Results_count: len(retrievedVehicles),
+			},
+			Data: retrievedVehicles,
 		}
 
 		return result
@@ -328,22 +380,24 @@ func main() {
 	//for now main() part is used only for testing
 
 	traction_types, producers, models, production_years, operators, garages = getDataLists()
+	result, _ := json.MarshalIndent((returnDataLists()), "", "  ")
+	fmt.Println(string(result))
 	/*
-		//fmt.Println("Hello")
-		vehicle := getVehicleByNum("2022")
-		fmt.Println(string(vehicleToJSON(vehicle)))
-		vehicle = getVehicleById("2137")
-		fmt.Println(string(vehicleToJSON(vehicle)))
-	*/
-	examplesearchquery := searchQuery{
-		production_year: 2022,
-	}
-	search(examplesearchquery, true)
+			//fmt.Println("Hello")
+			vehicle := getVehicleByNum("2022")
+			fmt.Println(string(vehicleToJSON(vehicle)))
+			vehicle = getVehicleById("2137")
+			fmt.Println(string(vehicleToJSON(vehicle)))
 
-	examplesearchquery2 := searchQuery{
-		operator: 2,
-	}
-	search(examplesearchquery2, true)
+		examplesearchquery := searchQuery{
+			production_year: 2022,
+		}
+		search(examplesearchquery, true)
+
+		examplesearchquery2 := searchQuery{
+			operator: 2,
+		}
+		search(examplesearchquery2, true)*/
 	//search(examplesearchquery, true)
 
 }
