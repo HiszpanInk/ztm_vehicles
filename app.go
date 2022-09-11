@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/gocolly/colly/v2"
+
+	"net/http"
 )
 
 func reverse(s string) string {
@@ -324,6 +326,17 @@ func getVehicleById(vehicleID string) VehicleSearchQueryResult {
 }
 
 func getVehicleByNum(vehicleNum string) VehicleSearchQueryResult {
+	if len(vehicleNum) == 0 {
+		var emptyVehicles []vehicle
+		result := VehicleSearchQueryResult{
+			SearchResult: SearchResult{
+				Message:       "no vehicle found",
+				Results_count: 0,
+			},
+			Data: emptyVehicles,
+		}
+		return result
+	}
 	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=&ztm_make=&ztm_model=&ztm_year=&ztm_registration=&ztm_vehicle_number=%s&ztm_carrier=&ztm_depot=", vehicleNum)
 
 	var vehicleURL []string
@@ -376,28 +389,24 @@ func getVehicleByNum(vehicleNum string) VehicleSearchQueryResult {
 	}
 
 }
+
+func returnVehicleByNum(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vehicle_number := r.URL.Query().Get("vehicle_number")
+	fmt.Fprintf(w, string(vehicleToJSON(getVehicleByNum(vehicle_number))))
+}
+
+func statusPage(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "API seems to be workings OK")
+}
+
+// todo here
+// ofc implement rest of the functions
+// logging things (both in console and in file)
 func main() {
-	//for now main() part is used only for testing
+	http.HandleFunc("/status", statusPage)
+	http.HandleFunc("/getVehicleByNum", returnVehicleByNum)
 
-	traction_types, producers, models, production_years, operators, garages = getDataLists()
-	result, _ := json.MarshalIndent((returnDataLists()), "", "  ")
-	fmt.Println(string(result))
-	/*
-			//fmt.Println("Hello")
-			vehicle := getVehicleByNum("2022")
-			fmt.Println(string(vehicleToJSON(vehicle)))
-			vehicle = getVehicleById("2137")
-			fmt.Println(string(vehicleToJSON(vehicle)))
-
-		examplesearchquery := searchQuery{
-			production_year: 2022,
-		}
-		search(examplesearchquery, true)
-
-		examplesearchquery2 := searchQuery{
-			operator: 2,
-		}
-		search(examplesearchquery2, true)*/
-	//search(examplesearchquery, true)
-
+	http.ListenAndServe(":5353", nil)
+	//log.Fatal()
 }
