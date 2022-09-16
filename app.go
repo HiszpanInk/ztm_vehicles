@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
 	"encoding/json"
@@ -13,6 +14,9 @@ import (
 
 	"net/http"
 )
+
+// global variables and defaults
+var defaultPort string
 
 func reverse(s string) string {
 	runes := []rune(s)
@@ -30,6 +34,16 @@ func getElementIndexInSlice(element string, slice []string) int {
 		}
 	}
 	return toReturn
+}
+
+func isFlagPassed(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
 }
 
 // this is used for Producers, garages, operators and models
@@ -404,9 +418,19 @@ func statusPage(w http.ResponseWriter, r *http.Request) {
 // ofc implement rest of the functions
 // logging things (both in console and in file)
 func main() {
+	defaultPort = "5353"
+
+	var selectedPort string
+
 	http.HandleFunc("/status", statusPage)
 	http.HandleFunc("/getVehicleByNum", returnVehicleByNum)
+	port := ":"
+	flag.StringVar(&selectedPort, "port", defaultPort, "Define the port the server will run on, the default one is 5353")
+	port += selectedPort
+	flag.Parse()
+	fmt.Println("Running on", selectedPort)
 
-	http.ListenAndServe(":5353", nil)
+	http.ListenAndServe(port, nil)
+
 	//log.Fatal()
 }
