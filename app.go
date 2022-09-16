@@ -418,6 +418,7 @@ func statusPage(w http.ResponseWriter, r *http.Request) {
 // ofc implement rest of the functions
 // logging things (both in console and in file)
 func main() {
+	fmt.Println("Starting...")
 	defaultPort = "5353"
 
 	var selectedPort string
@@ -428,7 +429,7 @@ func main() {
 	flag.StringVar(&selectedPort, "port", defaultPort, "Define the port the server will run on, the default one is 5353")
 	port += selectedPort
 	flag.Parse()
-	fmt.Println("Running on", selectedPort)
+	fmt.Println("Started. Running on", selectedPort)
 
 	http.ListenAndServe(port, nil)
 
