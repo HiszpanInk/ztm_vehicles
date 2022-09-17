@@ -36,16 +36,6 @@ func getElementIndexInSlice(element string, slice []string) int {
 	return toReturn
 }
 
-func isFlagPassed(name string) bool {
-	found := false
-	flag.Visit(func(f *flag.Flag) {
-		if f.Name == name {
-			found = true
-		}
-	})
-	return found
-}
-
 // this is used for Producers, garages, operators and models
 type propertyWithID struct {
 	Id   int
@@ -99,7 +89,7 @@ func getDataLists() ([]string, []string, []string, []string, []string, []string)
 	return traction_types_temp, producers_temp, models_temp, production_years_temp, operators_temp, garages_temp
 }
 
-func returnDataLists() DataListsQueryResult {
+func getDataListsForReturn() DataListsQueryResult {
 	if len(producers) == 0 || len(models) == 0 || len(traction_types) == 0 || len(operators) == 0 || len(production_years) == 0 || len(garages) == 0 {
 		result := DataListsQueryResult{
 			SearchResult: SearchResult{
@@ -407,7 +397,12 @@ func getVehicleByNum(vehicleNum string) VehicleSearchQueryResult {
 func returnVehicleByNum(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vehicle_number := r.URL.Query().Get("vehicle_number")
-	fmt.Fprintf(w, string(vehicleToJSON(getVehicleByNum(vehicle_number))))
+	fmt.Fprint(w, string(vehicleToJSON(getVehicleByNum(vehicle_number))))
+}
+func returnDataLists(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	result, _ := json.MarshalIndent(getDataListsForReturn(), "", "  ")
+	fmt.Fprint(w, string(result))
 }
 
 func statusPage(w http.ResponseWriter, r *http.Request) {
@@ -422,9 +417,13 @@ func main() {
 	defaultPort = "5353"
 
 	var selectedPort string
+	traction_types, producers, models, production_years, operators, garages = getDataLists()
 
 	http.HandleFunc("/status", statusPage)
 	http.HandleFunc("/getVehicleByNum", returnVehicleByNum)
+	http.HandleFunc("/returnDataLists", returnDataLists)
+
+	getDataLists()
 	port := ":"
 	flag.StringVar(&selectedPort, "port", defaultPort, "Define the port the server will run on, the default one is 5353")
 	port += selectedPort
