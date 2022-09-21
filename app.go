@@ -119,6 +119,7 @@ func getDataListsForReturn() DataListsQueryResult {
 
 func stringListToPropertyWithIDList(inputList []string) []propertyWithID {
 	var outputList []propertyWithID
+	fmt.Println(inputList)
 	for i := 0; i < len(inputList); i++ {
 		outputList = append(outputList, propertyWithID{(i + 1), inputList[i]})
 	}
@@ -158,6 +159,10 @@ type SearchResult struct {
 	Message       string
 	Results_count int
 }
+type ErrorResult struct {
+	Message   string
+	ErrorCode int
+}
 type VehicleSearchQueryResult struct {
 	SearchResult
 	Data []vehicle
@@ -169,8 +174,8 @@ type DataListsQueryResult struct {
 
 // it returns a slice of vehicle numbers found and/or message if needed (with an error for example or sth idk)
 func search(searchQuery searchQuery, onlyID bool) VehicleSearchQueryResult {
-
-	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=%d&ztm_make=%d&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", searchQuery.traction_type, searchQuery.producer, searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
+	fmt.Println(producers[searchQuery.producer])
+	searchURL := fmt.Sprintf("https://www.ztm.waw.pl/baza-danych-pojazdow/?ztm_traction=%d&ztm_make=%s&ztm_model=%d&ztm_year=%d&ztm_registration=%s&ztm_vehicle_number=%s&ztm_carrier=%d&ztm_depot=%d", searchQuery.traction_type, producers[searchQuery.producer], searchQuery.model, searchQuery.production_year, searchQuery.vehicle_registration_plate, searchQuery.vehicle_number, searchQuery.operator, searchQuery.garage)
 	pagesNum := getPagesNum(searchURL)
 	//resultVehicles := make([]string, 0)
 
@@ -399,9 +404,42 @@ func returnVehicleByNum(w http.ResponseWriter, r *http.Request) {
 	vehicle_number := r.URL.Query().Get("vehicle_number")
 	fmt.Fprint(w, string(vehicleToJSON(getVehicleByNum(vehicle_number))))
 }
+
+func returnVehicleById(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vehicle_number := r.URL.Query().Get("vehicle_id")
+	fmt.Fprint(w, string(vehicleToJSON(getVehicleById(vehicle_number))))
+}
+
 func returnDataLists(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	result, _ := json.MarshalIndent(getDataListsForReturn(), "", "  ")
+	fmt.Fprint(w, string(result))
+}
+func returnSearchQueryResult(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	traction_type, _ := strconv.Atoi(r.URL.Query().Get("traction_type"))
+	producer, _ := strconv.Atoi(r.URL.Query().Get("producer"))
+	model, _ := strconv.Atoi(r.URL.Query().Get("model"))
+	production_year, _ := strconv.Atoi(r.URL.Query().Get("production_year"))
+	vehicle_registration_plate := r.URL.Query().Get("vehicle_registration_plate")
+	vehicle_number := r.URL.Query().Get("vehicle_number")
+	operator, _ := strconv.Atoi(r.URL.Query().Get("operator"))
+	garage, _ := strconv.Atoi(r.URL.Query().Get("garage"))
+
+	searchQuery := searchQuery{
+		traction_type:              traction_type,
+		producer:                   producer,
+		model:                      model,
+		production_year:            production_year,
+		vehicle_registration_plate: vehicle_registration_plate,
+		vehicle_number:             vehicle_number,
+		operator:                   operator,
+		garage:                     garage,
+	}
+	fmt.Println(searchQuery)
+	result, _ := json.MarshalIndent(search(searchQuery, false), "", "  ")
 	fmt.Fprint(w, string(result))
 }
 
@@ -410,8 +448,11 @@ func statusPage(w http.ResponseWriter, r *http.Request) {
 }
 
 // todo here
-// ofc implement rest of the functions
+// fix dataLists
+// make some simple documentation
 // logging things (both in console and in file)
+// error handling
+// make status page more functional and pretty (do some html and css, also add taht when you check it it checks if ZTM database page is up)
 func main() {
 	fmt.Println("Starting...")
 	defaultPort = "5353"
@@ -421,7 +462,9 @@ func main() {
 
 	http.HandleFunc("/status", statusPage)
 	http.HandleFunc("/getVehicleByNum", returnVehicleByNum)
-	http.HandleFunc("/returnDataLists", returnDataLists)
+	http.HandleFunc("/getVehicleById", returnVehicleById)
+	http.HandleFunc("/getDataLists", returnDataLists)
+	http.HandleFunc("/search", returnSearchQueryResult)
 
 	getDataLists()
 	port := ":"
